@@ -1,0 +1,15 @@
+# Runtime dependencies for the core engine and local backend.
+# Bot- and HEIF-specific extras live in requirements-dev.txt / pyproject extras.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pydantic-settings>=2.2
+Pillow>=10.2
+piexif>=1.1.3
+python-multipart>=0.0.9
+python-dotenv>=1.0
+# IANA time-zone database (required on Windows, which has no system zoneinfo)
+tzdata>=2024.1
+
+# Optional but recommended for HEIC/HEIF read support (may require system libs):
+# pillow-heif>=0.16

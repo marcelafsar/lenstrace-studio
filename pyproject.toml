@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lenstrace-studio"
+version = "0.1.0"
+description = "Professional photo metadata editor with a desktop app plus Telegram and Discord bots, built on one shared Python engine."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "LensTrace Studio contributors" }]
+keywords = ["exif", "metadata", "photography", "privacy", "gps", "iphone"]
+
+# NOTE: Runtime deps are pinned loosely here and mirrored in requirements*.txt.
+# The project targets Python 3.12+; 3.10/3.11 also work for the core engine.
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "Pillow>=10.2",
+    "piexif>=1.1.3",
+    "python-multipart>=0.0.9",
+    "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+heif = ["pillow-heif>=0.16"]
+bots = ["discord.py>=2.4", "python-telegram-bot>=21.0", "python-dotenv>=1.0"]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "ruff>=0.4",
+    "black>=24.0",
+    "mypy>=1.9",
+]
+
+[project.urls]
+Homepage = "https://example.invalid/lenstrace-studio"
+Repository = "https://example.invalid/lenstrace-studio"
+
+[tool.setuptools]
+packages = ["core", "backend", "bots"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["desktop", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "SIM", "PTH"]
+ignore = ["B008"]  # FastAPI Depends() in defaults is idiomatic
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "backend", "bots"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+disallow_untyped_defs = false
+files = ["core", "backend", "bots"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "_comment": "exif_model strings are the marketing model names iPhones write to EXIF Model and are treated as verified for iPhone 11-16. Lens entries carry friendly display names only; lens_model/focal values are intentionally left empty because precise per-lens Apple EXIF values are not filled in here (do not invent them). iPhone 16e, iPhone Air and the iPhone 17 family are marked source_status='placeholder' pending confirmation of their exact EXIF Model strings.",
+  "devices": [
+    {
+      "id": "iphone-11",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 11",
+      "generation": "iPhone 11",
+      "exif_model": "iPhone 11",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-11-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 11 Pro",
+      "generation": "iPhone 11",
+      "exif_model": "iPhone 11 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-11-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 11 Pro Max",
+      "generation": "iPhone 11",
+      "exif_model": "iPhone 11 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-12-mini",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 12 mini",
+      "generation": "iPhone 12",
+      "exif_model": "iPhone 12 mini",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-12",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 12",
+      "generation": "iPhone 12",
+      "exif_model": "iPhone 12",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-12-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 12 Pro",
+      "generation": "iPhone 12",
+      "exif_model": "iPhone 12 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-12-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 12 Pro Max",
+      "generation": "iPhone 12",
+      "exif_model": "iPhone 12 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-13-mini",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 13 mini",
+      "generation": "iPhone 13",
+      "exif_model": "iPhone 13 mini",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-13",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 13",
+      "generation": "iPhone 13",
+      "exif_model": "iPhone 13",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-13-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 13 Pro",
+      "generation": "iPhone 13",
+      "exif_model": "iPhone 13 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-13-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 13 Pro Max",
+      "generation": "iPhone 13",
+      "exif_model": "iPhone 13 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-14",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 14",
+      "generation": "iPhone 14",
+      "exif_model": "iPhone 14",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-14-plus",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 14 Plus",
+      "generation": "iPhone 14",
+      "exif_model": "iPhone 14 Plus",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-14-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 14 Pro",
+      "generation": "iPhone 14",
+      "exif_model": "iPhone 14 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-14-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 14 Pro Max",
+      "generation": "iPhone 14",
+      "exif_model": "iPhone 14 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-15",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 15",
+      "generation": "iPhone 15",
+      "exif_model": "iPhone 15",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-15-plus",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 15 Plus",
+      "generation": "iPhone 15",
+      "exif_model": "iPhone 15 Plus",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-15-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 15 Pro",
+      "generation": "iPhone 15",
+      "exif_model": "iPhone 15 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-15-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 15 Pro Max",
+      "generation": "iPhone 15",
+      "exif_model": "iPhone 15 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-16",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 16",
+      "generation": "iPhone 16",
+      "exif_model": "iPhone 16",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-16-plus",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 16 Plus",
+      "generation": "iPhone 16",
+      "exif_model": "iPhone 16 Plus",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-16-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 16 Pro",
+      "generation": "iPhone 16",
+      "exif_model": "iPhone 16 Pro",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-16-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 16 Pro Max",
+      "generation": "iPhone 16",
+      "exif_model": "iPhone 16 Pro Max",
+      "source_status": "verified",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-16e",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 16e",
+      "generation": "iPhone 16",
+      "exif_model": "iPhone 16e",
+      "source_status": "placeholder",
+      "notes": "Confirm the exact EXIF Model string on a real device before relying on it.",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-air",
+      "manufacturer": "Apple",
+      "display_name": "iPhone Air",
+      "generation": "iPhone 17",
+      "exif_model": "iPhone Air",
+      "source_status": "placeholder",
+      "notes": "2025 model. Confirm the exact EXIF Model string before relying on it.",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-17",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 17",
+      "generation": "iPhone 17",
+      "exif_model": "iPhone 17",
+      "source_status": "placeholder",
+      "notes": "2025 model. Confirm the exact EXIF Model string before relying on it.",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-17-pro",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 17 Pro",
+      "generation": "iPhone 17",
+      "exif_model": "iPhone 17 Pro",
+      "source_status": "placeholder",
+      "notes": "2025 model. Confirm the exact EXIF Model string before relying on it.",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    },
+    {
+      "id": "iphone-17-pro-max",
+      "manufacturer": "Apple",
+      "display_name": "iPhone 17 Pro Max",
+      "generation": "iPhone 17",
+      "exif_model": "iPhone 17 Pro Max",
+      "source_status": "placeholder",
+      "notes": "2025 model. Confirm the exact EXIF Model string before relying on it.",
+      "lenses": [
+        { "id": "main", "display_name": "Main Camera", "lens_model": "" },
+        { "id": "ultrawide", "display_name": "Ultra Wide Camera", "lens_model": "" },
+        { "id": "telephoto", "display_name": "Telephoto Camera", "lens_model": "" }
+      ]
+    }
+  ]
+}
