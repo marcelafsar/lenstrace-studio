@@ -55,6 +55,9 @@ class MetadataSummary(BaseModel):
     make: str | None = None
     model: str | None = None
     lens_model: str | None = None
+    focal_length: str | None = None
+    f_number: str | None = None
+    focal_length_35mm: str | None = None
     software: str | None = None
     datetime_original: str | None = None
     create_date: str | None = None
@@ -83,10 +86,27 @@ class ChangePlan(BaseModel):
 
     # Device / camera identity
     preset_id: str | None = None
+    lens_id: str | None = None
     make: str | None = None
     model: str | None = None
     lens_model: str | None = None
+    #: Optical lens fields — only written when a preset actually supplies them.
+    focal_length_mm: float | None = None
+    focal_length_35mm: float | None = None
+    f_number: float | None = None
+    #: EXIF LensSpecification [minF, maxF, minFNum@minF, minFNum@maxF].
+    lens_specification: list[float] | None = None
+    #: True when ``lens_model`` is a generated generic fallback, not verified.
+    lens_is_generic: bool = False
+    #: Preserve the source file's existing lens fields (don't touch them).
+    keep_original_lens: bool = False
+    #: Remove lens fields from the exported copy.
+    remove_lens: bool = False
     software: str | None = None
+
+    #: Output-format policy: force conversion of the source to JPEG on export
+    #: (e.g. for broad Apple Photos EXIF visibility from a PNG source).
+    convert_to_jpeg: bool = False
 
     # Date / time
     date_strategy: DateStrategy = DateStrategy.KEEP_ORIGINAL
@@ -129,6 +149,27 @@ class ChangeDiff(BaseModel):
     rows: list[FieldChange] = Field(default_factory=list)
 
 
+class FieldVerification(BaseModel):
+    """One field's requested-vs-actual comparison after export."""
+
+    field: str
+    requested: str | None = None
+    actual: str | None = None
+    ok: bool = True
+
+
+class MetadataVerification(BaseModel):
+    """Result of reading the exported file back and checking it matches the plan."""
+
+    ok: bool = True
+    #: True if a lens was requested and its LensModel was actually written.
+    lens_model_ok: bool = True
+    lens_model_requested: str | None = None
+    lens_model_actual: str | None = None
+    fields: list[FieldVerification] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ExportResult(BaseModel):
     """The outcome of a single apply/export operation."""
 
@@ -137,7 +178,9 @@ class ExportResult(BaseModel):
     audit_sidecar_path: Path | None = None
     bytes_written: int = 0
     converted_to_jpeg: bool = False
+    sha256: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    verification: MetadataVerification | None = None
     success: bool = True
 
     model_config = {"arbitrary_types_allowed": True}

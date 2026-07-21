@@ -21,14 +21,43 @@ class SourceStatus(str, Enum):
     CUSTOM = "custom"
 
 
+class LensSourceStatus(str, Enum):
+    """Provenance of a resolved lens's EXIF values.
+
+    Kept distinct from device ``SourceStatus`` so we never present a generated
+    fallback string as verified original Apple metadata.
+    """
+
+    VERIFIED = "verified"  # exact value taken from the preset
+    DERIVED = "derived"  # computed from other verified data
+    GENERIC = "generic"  # transparent generated fallback (e.g. "Apple iPhone … Camera")
+    PLACEHOLDER = "placeholder"
+    UNAVAILABLE = "unavailable"
+
+
 class LensPreset(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     display_name: str = Field(..., min_length=1, max_length=128)
-    #: EXIF LensModel string; empty means "leave lens fields unset".
+    #: EXIF LensModel string. Empty means "generate a transparent generic
+    #: fallback at resolve time" (see core.presets.lens_resolver).
     lens_model: str = ""
     focal_length_mm: float | None = Field(default=None, gt=0, lt=1000)
     focal_length_35mm: float | None = Field(default=None, gt=0, lt=1000)
     f_number: float | None = Field(default=None, gt=0, lt=100)
+    #: EXIF LensSpecification = [minFocal, maxFocal, minFNumberAtMinFocal,
+    #: minFNumberAtMaxFocal]. Four positive numbers when supplied.
+    lens_specification: list[float] | None = None
+    #: Explicit provenance override; when unset it is inferred at resolve time.
+    source_status: LensSourceStatus | None = None
+
+    @field_validator("lens_specification")
+    @classmethod
+    def _valid_lens_spec(cls, value: list[float] | None) -> list[float] | None:
+        if value is None:
+            return None
+        if len(value) != 4 or any(v <= 0 for v in value):
+            raise ValueError("lens_specification must be four positive numbers")
+        return value
 
 
 class DevicePreset(BaseModel):

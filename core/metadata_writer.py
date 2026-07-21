@@ -29,6 +29,54 @@ def _empty_exif() -> dict:
     return {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}, "Interop": {}, "thumbnail": None}
 
 
+def _rational(value: float, denom: int = 100) -> tuple[int, int]:
+    """Convert a positive float to an EXIF unsigned rational (num, denom)."""
+    return (int(round(value * denom)), denom)
+
+
+def _apply_lens_fields(exif_ifd: dict, plan: ChangePlan) -> None:
+    """Write/keep/remove lens EXIF fields on the Exif IFD.
+
+    Rules:
+      * keep_original_lens  -> leave every existing lens field untouched.
+      * remove_lens         -> delete all lens fields.
+      * a selected lens     -> set LensModel (never blank) and any optical values
+        the preset provided, and clear stale optical fields the new lens does not
+        define (so an unrelated old focal length is never left behind).
+    """
+    import piexif
+
+    lens_tags = (
+        piexif.ExifIFD.LensModel,
+        piexif.ExifIFD.FocalLength,
+        piexif.ExifIFD.FNumber,
+        piexif.ExifIFD.FocalLengthIn35mmFilm,
+        piexif.ExifIFD.LensSpecification,
+    )
+
+    if plan.keep_original_lens:
+        return
+    if plan.remove_lens:
+        for tag in lens_tags:
+            exif_ifd.pop(tag, None)
+        return
+    if not plan.lens_model:
+        return  # no lens selected; leave existing lens fields as-is
+
+    # A new lens is being applied: clear all lens tags first, then set ours.
+    for tag in lens_tags:
+        exif_ifd.pop(tag, None)
+    exif_ifd[piexif.ExifIFD.LensModel] = plan.lens_model.encode("utf-8")
+    if plan.focal_length_mm is not None:
+        exif_ifd[piexif.ExifIFD.FocalLength] = _rational(plan.focal_length_mm)
+    if plan.f_number is not None:
+        exif_ifd[piexif.ExifIFD.FNumber] = _rational(plan.f_number)
+    if plan.focal_length_35mm is not None:
+        exif_ifd[piexif.ExifIFD.FocalLengthIn35mmFilm] = int(round(plan.focal_length_35mm))
+    if plan.lens_specification is not None and len(plan.lens_specification) == 4:
+        exif_ifd[piexif.ExifIFD.LensSpecification] = [_rational(v) for v in plan.lens_specification]
+
+
 def _build_exif_dict(base: dict, plan: ChangePlan) -> dict:
     """Apply the change plan onto a piexif-style dict and return it."""
     import piexif
@@ -48,7 +96,9 @@ def _build_exif_dict(base: dict, plan: ChangePlan) -> dict:
     set_str(zeroth, piexif.ImageIFD.Make, plan.make)
     set_str(zeroth, piexif.ImageIFD.Model, plan.model)
     set_str(zeroth, piexif.ImageIFD.Software, plan.software)
-    set_str(exif_ifd, piexif.ExifIFD.LensModel, plan.lens_model)
+
+    # Lens fields (LensModel plus any optical values the preset supplied).
+    _apply_lens_fields(exif_ifd, plan)
 
     # Date / time
     if plan.date_strategy == DateStrategy.SET_EXPLICIT:
@@ -98,9 +148,12 @@ def write_metadata(base_exif: dict, plan: ChangePlan) -> ExportResult:
     if plan.strip_all_metadata:
         return _write_stripped(source, dest, src_format)
 
-    if src_format in _EXIF_NATIVE:
+    # Convertible if the format can't hold EXIF, OR the user asked for JPEG
+    # output from a non-JPEG source (broad Apple Photos visibility).
+    force_jpeg = plan.convert_to_jpeg and src_format != ImageFormat.JPEG
+    if src_format in _EXIF_NATIVE and not force_jpeg:
         working_dest = dest
-    elif src_format in _CONVERTIBLE:
+    elif src_format in _CONVERTIBLE or force_jpeg:
         working_dest, converted, warn = _convert_to_jpeg(source, dest)
         if warn:
             warnings.append(warn)

@@ -143,6 +143,15 @@ def _summary_from_exif(
     def e(tag: int):
         return _decode(exif_ifd.get(tag))
 
+    def rat(tag: int) -> str | None:
+        """Format an EXIF rational (num, denom) as a decimal string."""
+        val = exif_ifd.get(tag)
+        if isinstance(val, tuple) and len(val) == 2 and val[1]:
+            return f"{val[0] / val[1]:g}"
+        if isinstance(val, int):
+            return str(val)
+        return None
+
     lat, lon, alt = _gps_from_ifd(gps_ifd)
 
     raw: dict[str, str] = {}
@@ -160,6 +169,9 @@ def _summary_from_exif(
         model=z(piexif.ImageIFD.Model),
         software=z(piexif.ImageIFD.Software),
         lens_model=e(piexif.ExifIFD.LensModel),
+        focal_length=rat(piexif.ExifIFD.FocalLength),
+        f_number=rat(piexif.ExifIFD.FNumber),
+        focal_length_35mm=rat(piexif.ExifIFD.FocalLengthIn35mmFilm),
         datetime_original=e(piexif.ExifIFD.DateTimeOriginal),
         create_date=e(piexif.ExifIFD.DateTimeDigitized),
         modify_date=z(piexif.ImageIFD.DateTime),
