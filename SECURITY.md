@@ -41,11 +41,28 @@ The project is built around a few deliberate safeguards:
 
 ### Secrets & logging
 
-- Bot tokens and other secrets are read from environment variables / `.env`
-  (git-ignored). `.env.example` contains no real values.
-- A logging redaction filter scrubs token-shaped strings from log output.
+- Bot tokens are handled by a dedicated secrets service (env → OS credential
+  store via `keyring` → local file fallback → `.env`). The full value is never
+  returned by the API, never logged, and never placed in exceptions; only a
+  masked suffix and the storage source are exposed. `.env.example` contains no
+  real values. See [docs/secrets-and-configuration.md](docs/secrets-and-configuration.md).
+- Bot child processes receive their token via the environment, never argv, and
+  are launched without a shell.
+- A logging redaction filter scrubs token-shaped strings from log output and
+  from captured bot-process output.
 - At normal log levels the app avoids logging image bytes, exact private paths,
   personal coordinates, or full user messages.
+
+### Delivery (Send to iPhone)
+
+- The renderer never sends raw filesystem paths to delivery routes; it sends an
+  opaque `export_id` minted server-side after a successful export and mapped to a
+  validated output-directory path.
+- Files are copied byte-for-byte (never re-encoded) and verified by SHA-256.
+- External URLs are validated (http(s) only, no `javascript:`/`data:`/`file:`,
+  no embedded credentials) before the app opens them.
+- Transfer integrations never receive Apple Account passwords and never automate
+  sign-in. LensTrace cannot and does not alter Apple's import/provenance labels.
 
 ## Supported versions
 

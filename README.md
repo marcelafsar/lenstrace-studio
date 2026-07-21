@@ -31,6 +31,47 @@
   **audit sidecar** recording exactly what changed.
 - Remove all metadata.
 - Batch-process multiple images (desktop).
+- **Send an exported copy toward an iPhone** (iCloud Photos, PairDrop, or Apple
+  Devices assisted sync) with byte-for-byte + metadata verification.
+- **Set up and supervise the Telegram/Discord bots** from a desktop panel.
+- **Check your environment** from a CLI or the Diagnostics panel.
+
+## Send to iPhone
+
+After exporting, the **Send to iPhone** screen offers three ways to move the
+exact file toward an iPhone. LensTrace preserves the file bytes and embedded
+metadata and verifies every copy by SHA-256; **Apple and external services
+control final import behaviour and any source/provenance labels**. See
+[docs/iphone-delivery-methods.md](docs/iphone-delivery-methods.md).
+
+| Method | Requirements | Automatic? | Main limitation |
+|--------|--------------|------------|-----------------|
+| iCloud Photos | iCloud for Windows | Copy-assisted | Apple controls sync/provenance |
+| PairDrop | Modern browsers | User transfer | iOS performs the final save |
+| Apple Devices | Apple Devices + cable/Wi-Fi | Assisted sync | Computer-synced behaviour |
+
+> LensTrace does **not** make an image a native Camera capture, hide import
+> source, remove provenance, or inject into the Camera Roll. Metadata is editable
+> and does not prove when, where, or with which device a photo was captured.
+
+## Bot Control Center
+
+The desktop **Bots** panel configures and supervises the Telegram and Discord
+bots — token setup wizard (test/save, never shown again after saving),
+start/stop/restart, auto-start, live status, and redacted logs. Bots run as
+supervised child processes, are disabled by default, and stop when LensTrace
+closes. See [docs/bot-control-center.md](docs/bot-control-center.md).
+
+## Quick environment check
+
+```powershell
+python scripts/check_env.py
+```
+
+Shows `[PASS]`/`[WARN]`/`[FAIL]` lines. Options: `--service`, `--json`,
+`--strict`, `--connectivity`. Exit codes: `0` all required pass, `1` a required
+check failed, `2` configuration invalid, `3` checker error. No secret is ever
+printed. See [docs/environment-checker.md](docs/environment-checker.md).
 
 ## Three interfaces, one engine
 
@@ -99,30 +140,44 @@ Electron app — and shuts everything down cleanly on exit or Ctrl+C.
 
 ## Bot setup
 
-See [docs/bot-setup.md](docs/bot-setup.md). In short:
+You can configure bots two ways:
+
+- **Desktop Bot Control Center** (recommended) — paste, test, and save the token
+  in the Bots panel. The saved token is stored securely and **never shown again**
+  (only a masked suffix). See [docs/bot-control-center.md](docs/bot-control-center.md),
+  [docs/telegram-bot-setup.md](docs/telegram-bot-setup.md), and
+  [docs/discord-bot-setup.md](docs/discord-bot-setup.md).
+- **Environment variables** (source mode) — see [docs/bot-setup.md](docs/bot-setup.md):
 
 ```powershell
 Copy-Item .env.example .env   # then fill in the token(s)
-
-# Telegram
 .\scripts\run_telegram_bot.ps1
-# Discord
 .\scripts\run_discord_bot.ps1
 ```
+
+### Bot controls
+
+The Bots panel provides start / stop / restart, an auto-start toggle, redacted
+logs, and clear-token. Bots run as supervised child processes: disabled by
+default, no automatic startup unless you opt in, and stopped when LensTrace
+closes. See [docs/bot-process-supervision.md](docs/bot-process-supervision.md).
 
 ### Environment variables
 
 | Variable | Purpose |
 |----------|---------|
-| `DISCORD_BOT_TOKEN` | Discord bot auth (Discord bot only). |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot auth (Telegram bot only). |
+| `TELEGRAM_BOT_ENABLED` / `TELEGRAM_BOT_TOKEN` / `TELEGRAM_BOT_AUTO_START` | Telegram bot config. |
+| `DISCORD_BOT_ENABLED` / `DISCORD_BOT_TOKEN` / `DISCORD_GUILD_ID` / `DISCORD_BOT_AUTO_START` | Discord bot config. |
 | `LOG_LEVEL` | `DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL`. |
 | `MAX_UPLOAD_MB` | Upload size limit (default 25). |
-| `SESSION_TIMEOUT_MINUTES` | Bot session expiry (default 15). |
+| `SESSION_TIMEOUT_MINUTES` | Bot session expiry (default 30). |
 | `GEOCODING_USER_AGENT` | Descriptive UA string for Nominatim address search. |
+| `ICLOUD_PHOTOS_*` / `PAIRDROP_*` / `APPLE_DEVICES_ENABLED` / `LENSTRACE_SYNC_PATH` | Delivery providers. |
 
-Never commit `.env`. Bot tokens, session tokens, and private paths are kept out
-of logs (see [SECURITY.md](SECURITY.md)).
+See [.env.example](.env.example) for the full list and
+[docs/secrets-and-configuration.md](docs/secrets-and-configuration.md) for how
+secrets are stored. Never commit `.env`. Bot tokens, session tokens, and private
+paths are kept out of logs (see [SECURITY.md](SECURITY.md)).
 
 ## Example workflow (desktop)
 
@@ -139,8 +194,14 @@ of logs (see [SECURITY.md](SECURITY.md)).
 ```powershell
 # Python
 pytest
-ruff check core backend bots tests
-black --check core backend bots tests
+ruff check core backend bots tests scripts
+black --check core backend bots tests scripts
+mypy core backend bots
+
+# Environment checker
+python scripts/check_env.py
+python scripts/check_env.py --json
+python scripts/check_env.py --strict
 
 # Desktop
 cd desktop
@@ -158,6 +219,21 @@ npm run build
 See [docs/packaging-windows.md](docs/packaging-windows.md). Packaging scripts are
 provided but the produced installer has **not** been verified end-to-end.
 
+## Security
+
+- Bot tokens are **secrets**. Never commit `.env`. If a token is ever exposed,
+  regenerate it (via @BotFather or the Discord Developer Portal).
+- LensTrace binds its API only to `127.0.0.1` (loopback) with a per-session
+  token; delivery routes accept an opaque `export_id`, never raw file paths.
+- Transfer integrations never receive Apple Account passwords and never automate
+  sign-in.
+- Bot logs redact token-shaped strings; the environment checker reports the
+  *presence* of secrets, never their contents. Saved tokens are shown only as a
+  masked suffix.
+
+See [SECURITY.md](SECURITY.md) and
+[docs/secrets-and-configuration.md](docs/secrets-and-configuration.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
@@ -173,6 +249,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.
   its usage policy; it is optional and never sends your images.
 - The Telegram and Discord bots are scaffolds: their handler logic is
   unit-tested with mocks but they have not been run against the live APIs here.
+- The **Send to iPhone** delivery methods are implemented and unit-tested for
+  file integrity/verification, but have **not** been verified on a real iPhone,
+  iCloud account, or with a real PairDrop transfer. Apple controls final import
+  behaviour and any source/provenance labels.
+- The PairDrop CLI path is optional and unverified; browser mode is the default.
 - Windows packaging is scaffolded but unverified.
 - iPhone 16e / iPhone Air / iPhone 17 family presets are marked `placeholder`
   pending confirmation of their exact EXIF `Model` strings.
