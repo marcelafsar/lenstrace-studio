@@ -24,6 +24,20 @@ _REDACT_PATTERNS = [
 ]
 
 
+def redact(text: str) -> str:
+    """Scrub known-sensitive substrings (tokens) from an arbitrary string.
+
+    Reused by the bot supervisor to sanitise captured child-process output
+    before it enters the in-memory log ring buffer.
+    """
+    if not text:
+        return text
+    redacted = text
+    for pattern, replacement in _REDACT_PATTERNS:
+        redacted = pattern.sub(replacement, redacted)
+    return redacted
+
+
 class RedactionFilter(logging.Filter):
     """Scrub sensitive substrings from formatted log messages."""
 
