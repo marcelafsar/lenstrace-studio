@@ -1,13 +1,17 @@
 """Slash commands for the Discord bot: /metadata inspect|remove|edit|help.
 
-All metadata work is delegated to core.MetadataEngine. Attachments are
-downloaded to isolated temp workspaces and cleaned up after the reply.
-Configuration replies are ephemeral; per-user sessions are isolated.
+All metadata work is delegated to core.MetadataEngine. Every command that
+downloads an attachment defers the interaction FIRST (downloads can exceed
+Discord's 3-second initial-response window) and then replies via a follow-up.
+Attachments are validated by actually decoding them, stored in isolated temp
+workspaces, and cleaned up after the reply. Configuration replies are ephemeral;
+sessions are per-user and reject other users' clicks.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 import discord
 from discord import app_commands
@@ -15,6 +19,8 @@ from discord import app_commands
 from bots.discord_bot.views import ConfirmView, EditPanel
 from bots.shared.bot_sessions import BotSession, SessionManager
 from bots.shared.formatting import CAPTURE_DISCLAIMER, format_diff, format_summary
+from bots.shared.image_validation import accept_document, validate_image_content
+from bots.shared.status_events import emit_status
 from bots.shared.temporary_files import TemporaryWorkspace
 from core.datetime_utils import offset_for_timezone
 from core.exceptions import LensTraceError
@@ -26,7 +32,47 @@ logger = logging.getLogger(__name__)
 engine = MetadataEngine()
 sessions = SessionManager()
 
-MAX_ATTACHMENT_MB = 25
+_KIND = "discord"
+
+
+def _max_bytes() -> int:
+    return int(os.environ.get("MAX_UPLOAD_MB", "25")) * 1024 * 1024
+
+
+async def _download(attachment: discord.Attachment, ws: TemporaryWorkspace):
+    dest = ws.input_path(attachment.filename)
+    await attachment.save(dest)
+    return dest
+
+
+async def _prepare(
+    interaction: discord.Interaction, image: discord.Attachment, ws: TemporaryWorkspace
+):
+    """Validate + download + content-check an attachment. Returns (path, summary).
+
+    On any problem, sends an ephemeral follow-up and returns ``(None, None)``.
+    Assumes the interaction has already been deferred.
+    """
+    if not accept_document(image.filename, image.content_type):
+        await interaction.followup.send(
+            "That file type isn't supported. Attach a JPEG, PNG, WebP, or TIFF image.",
+            ephemeral=True,
+        )
+        return None, None
+    if image.size > _max_bytes():
+        await interaction.followup.send(
+            f"Attachment is {image.size // (1024 * 1024)} MB, larger than the "
+            f"{_max_bytes() // (1024 * 1024)} MB limit.",
+            ephemeral=True,
+        )
+        return None, None
+    path = await _download(image, ws)
+    try:
+        summary = validate_image_content(path)
+    except LensTraceError as exc:
+        await interaction.followup.send(exc.user_message, ephemeral=True)
+        return None, None
+    return path, summary
 
 
 class MetadataCommands(app_commands.Group):
@@ -37,14 +83,13 @@ class MetadataCommands(app_commands.Group):
 
     @app_commands.command(description="Show an image's current metadata.")
     async def inspect(self, interaction: discord.Interaction, image: discord.Attachment) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
         with TemporaryWorkspace() as ws:
-            path = await _download(image, ws)
-            try:
-                summary = engine.inspect_image(path)
-            except LensTraceError as exc:
-                await interaction.response.send_message(exc.user_message, ephemeral=True)
+            _path, summary = await _prepare(interaction, image, ws)
+            if summary is None:
                 return
-            await interaction.response.send_message(
+            emit_status(_KIND, "processed", what="inspect")
+            await interaction.followup.send(
                 f"```\n{format_summary(summary)}\n```\n{CAPTURE_DISCLAIMER}", ephemeral=True
             )
 
@@ -52,12 +97,15 @@ class MetadataCommands(app_commands.Group):
     async def remove(self, interaction: discord.Interaction, image: discord.Attachment) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         with TemporaryWorkspace() as ws:
-            path = await _download(image, ws)
+            path, summary = await _prepare(interaction, image, ws)
+            if path is None:
+                return
             try:
                 result = engine.remove_metadata(path, ws.output_dir)
             except LensTraceError as exc:
                 await interaction.followup.send(exc.user_message, ephemeral=True)
                 return
+            emit_status(_KIND, "processed", what="remove")
             await interaction.followup.send(
                 content="Metadata removed. Original unchanged.",
                 file=discord.File(result.destination_path),
@@ -66,18 +114,26 @@ class MetadataCommands(app_commands.Group):
 
     @app_commands.command(description="Edit metadata with a guided panel.")
     async def edit(self, interaction: discord.Interaction, image: discord.Attachment) -> None:
-        if image.size > MAX_ATTACHMENT_MB * 1024 * 1024:
-            await interaction.response.send_message("Attachment is too large.", ephemeral=True)
-            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        session = sessions.get_or_create(interaction.user.id)
+        _cleanup(session)  # discard any previous pending edit for this user
         session = sessions.get_or_create(interaction.user.id)
         ws = TemporaryWorkspace()
         session.config = {"workspace": ws}
-        session.source_path = await _download(image, ws)
+        path, summary = await _prepare(interaction, image, ws)
+        if path is None:
+            ws.cleanup()
+            return
+        session.source_path = path
         session.original_name = image.filename
+        emit_status(_KIND, "processed", what="edit")
 
         panel = EditPanel(session, on_review=_show_review)
-        await interaction.response.send_message(
-            content="Configure the metadata edit, then press **Review**.",
+        await interaction.followup.send(
+            content=(
+                f"```\n{format_summary(summary)}\n```\n"
+                "Configure the edit below, then press **Review**."
+            ),
             view=panel,
             ephemeral=True,
         )
@@ -93,12 +149,6 @@ class MetadataCommands(app_commands.Group):
             f"{CAPTURE_DISCLAIMER}",
             ephemeral=True,
         )
-
-
-async def _download(attachment: discord.Attachment, ws: TemporaryWorkspace):
-    dest = ws.input_path(attachment.filename)
-    await attachment.save(dest)
-    return dest
 
 
 async def _show_review(interaction: discord.Interaction, session: BotSession) -> None:
@@ -119,6 +169,7 @@ async def _do_export(interaction: discord.Interaction, session: BotSession) -> N
         await interaction.followup.send(f"Export failed: {exc.user_message}", ephemeral=True)
         _cleanup(session)
         return
+    emit_status(_KIND, "processed", what="export")
     files = [discord.File(result.destination_path)]
     if result.audit_sidecar_path:
         files.append(discord.File(result.audit_sidecar_path))

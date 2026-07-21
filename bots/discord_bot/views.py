@@ -11,9 +11,17 @@ import discord
 
 from bots.discord_bot.modals import CoordinatesModal, DateTimeModal
 from bots.shared.bot_sessions import BotSession
+from bots.shared.temporary_files import TemporaryWorkspace
 from core.datetime_utils import offset_for_timezone, parse_user_datetime
 from core.metadata_models import GPSData
 from core.presets.loader import get_default_loader
+
+
+def _expire_session(session: BotSession) -> None:
+    """Clean up a session's temp workspace when its view expires."""
+    ws = session.config.get("workspace")
+    if isinstance(ws, TemporaryWorkspace):
+        ws.cleanup()
 
 
 class GenerationSelect(discord.ui.Select):
@@ -47,12 +55,33 @@ class DeviceSelect(discord.ui.Select):
         )
 
 
-class EditPanel(discord.ui.View):
+class _OwnedView(discord.ui.View):
+    """A view whose controls only the invoking user may operate."""
+
+    def __init__(self, session: BotSession, timeout: float) -> None:
+        super().__init__(timeout=timeout)
+        self.session = session
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.session.user_id:
+            await interaction.response.send_message(
+                "This isn't your editing session.", ephemeral=True
+            )
+            return False
+        return True
+
+    async def on_timeout(self) -> None:
+        # Expire the session: disable controls and clean up temp files.
+        for item in self.children:
+            item.disabled = True  # type: ignore[attr-defined]
+        _expire_session(self.session)
+
+
+class EditPanel(_OwnedView):
     """The main ephemeral configuration panel for ``/metadata edit``."""
 
     def __init__(self, session: BotSession, on_review, timeout: float = 600) -> None:
-        super().__init__(timeout=timeout)
-        self.session = session
+        super().__init__(session, timeout=timeout)
         self._on_review = on_review
         self.add_item(GenerationSelect(self))
 
@@ -114,12 +143,11 @@ class EditPanel(discord.ui.View):
         self.stop()
 
 
-class ConfirmView(discord.ui.View):
+class ConfirmView(_OwnedView):
     """Final confirm/cancel step shown with the review embed."""
 
     def __init__(self, session: BotSession, on_confirm, timeout: float = 300) -> None:
-        super().__init__(timeout=timeout)
-        self.session = session
+        super().__init__(session, timeout=timeout)
         self._on_confirm = on_confirm
 
     @discord.ui.button(label="Confirm & export", style=discord.ButtonStyle.success)
