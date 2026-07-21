@@ -14,10 +14,29 @@ from backend.api.schemas import (
 )
 from backend.logging_config import get_logger
 from backend.services import preview_service
+from backend.services.export_registry import get_export_registry
 from core.exceptions import LensTraceError
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/metadata", tags=["metadata"])
+
+
+def _register_export(destination_path) -> str | None:
+    """Register a successful export so it can be delivered by export_id.
+
+    The export flow is the trusted server-side caller, so it explicitly approves
+    the export's own output directory before registering (the registry itself
+    never auto-approves arbitrary paths handed to ``register``).
+    """
+    from pathlib import Path
+
+    try:
+        registry = get_export_registry()
+        registry.approve_directory(Path(destination_path).parent)
+        return registry.register(destination_path)
+    except (ValueError, OSError) as exc:  # non-fatal: export still succeeded
+        logger.warning("Could not register export for delivery: %s", type(exc).__name__)
+        return None
 
 
 @router.post("/preview", response_model=PreviewResponse)
@@ -39,7 +58,10 @@ def export_changes(request: ChangeRequest) -> ExportResponse:
         logger.warning("Export failed: %s", exc)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=exc.user_message) from exc
     logger.info("Exported 1 file successfully")
-    return ExportResponse(result=result, disclaimer=preview_service.disclaimer())
+    export_id = _register_export(result.destination_path)
+    return ExportResponse(
+        result=result, disclaimer=preview_service.disclaimer(), export_id=export_id
+    )
 
 
 @router.post("/export-batch", response_model=BatchExportResponse)
@@ -57,6 +79,7 @@ def export_batch(request: BatchExportRequest) -> BatchExportResponse:
                     file_id=file_id,
                     success=True,
                     destination_name=outcome.destination_path.name,
+                    export_id=_register_export(outcome.destination_path),
                 )
             )
     return BatchExportResponse(results=results)

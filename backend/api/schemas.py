@@ -103,6 +103,8 @@ class PreviewResponse(BaseModel):
 class ExportResponse(BaseModel):
     result: ExportResult
     disclaimer: str
+    #: Opaque id for handing this export to a delivery provider (never a path).
+    export_id: str | None = None
 
 
 class BatchExportRequest(BaseModel):
@@ -113,6 +115,7 @@ class BatchItemResult(BaseModel):
     file_id: str
     success: bool
     destination_name: str | None = None
+    export_id: str | None = None
     error: str | None = None
 
 
