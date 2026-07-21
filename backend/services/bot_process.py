@@ -17,6 +17,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from backend.logging_config import get_logger, redact
+from bots.shared.status_events import ErrorEvent, StatusEvent, parse_event
 from core.bots.status import BotRuntimeState
 
 logger = get_logger(__name__)
@@ -54,6 +55,15 @@ class BotProcess:
         self.last_error: str | None = None
         self._logs: deque[str] = deque(maxlen=log_capacity)
 
+        # Real-readiness signals parsed from the child's structured status events.
+        self.phase: str | None = None
+        self.authenticated: bool = False
+        self.ready: bool = False
+        self.commands_synced: bool = False
+        self.commands_count: int | None = None
+        self.last_processed: str | None = None
+        self.last_handler_error: str | None = None
+
     # ---- Lifecycle -------------------------------------------------------
 
     def is_running(self) -> bool:
@@ -66,11 +76,16 @@ class BotProcess:
                 raise RuntimeError(f"{self.name} bot is already running.")
             self._stop_requested = False
             self.state = BotRuntimeState.STARTING
+            self._reset_readiness()
             self._append_log(f"Starting {self.name} bot process.")
+            # Force unbuffered child stdout so status events stream promptly to
+            # the Bot Control Center instead of sitting in a pipe buffer.
+            child_env = dict(self._env)
+            child_env["PYTHONUNBUFFERED"] = "1"
             try:
                 self._proc = subprocess.Popen(  # noqa: S603 - explicit argv, no shell
                     self._command,
-                    env=self._env,
+                    env=child_env,
                     cwd=self._cwd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -120,11 +135,41 @@ class BotProcess:
             return
         try:
             for line in proc.stdout:
-                self._append_log(redact(line.rstrip("\n")))
+                stripped = line.rstrip("\n")
+                self._append_log(redact(stripped))
+                self._consume_event(stripped)
         except Exception:  # noqa: BLE001 - reader must never crash the app
             pass
         exit_code = proc.wait()
         self._handle_exit(exit_code)
+
+    def _consume_event(self, line: str) -> None:
+        """Update readiness signals from a structured status/error event line."""
+        event = parse_event(line)
+        if isinstance(event, StatusEvent):
+            self.phase = event.phase
+            if event.phase == "authenticated":
+                self.authenticated = True
+            elif event.phase in ("polling_ready", "gateway_ready", "ready"):
+                self.authenticated = True
+                self.ready = True
+            elif event.phase == "commands_synced":
+                self.commands_synced = True
+                count = event.fields.get("count")
+                self.commands_count = int(count) if count and count.isdigit() else None
+            elif event.phase == "processed":
+                self.last_processed = event.fields.get("what", "update")
+        elif isinstance(event, ErrorEvent):
+            self.last_handler_error = f"{event.where}: {event.message}".strip()
+
+    def _reset_readiness(self) -> None:
+        self.phase = None
+        self.authenticated = False
+        self.ready = False
+        self.commands_synced = False
+        self.commands_count = None
+        self.last_processed = None
+        self.last_handler_error = None
 
     def _handle_exit(self, exit_code: int) -> None:
         if self._stop_requested:

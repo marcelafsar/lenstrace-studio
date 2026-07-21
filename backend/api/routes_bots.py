@@ -153,6 +153,19 @@ def restart_bot(bot_id: str) -> BotView:
     return _view(kind)
 
 
+@router.post("/{bot_id}/resync", response_model=BotView)
+def resync_commands(bot_id: str) -> BotView:
+    """Force a slash-command resync (Discord). Restarts the bot's process."""
+    kind = _kind(bot_id)
+    if bot_config_service.resolve_token(kind)[0] is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="This bot has no token configured yet.",
+        )
+    get_supervisor().resync_commands(kind)
+    return _view(kind)
+
+
 @router.get("/{bot_id}/logs", response_model=LogsResponse)
 def bot_logs(bot_id: str) -> LogsResponse:
     kind = _kind(bot_id)

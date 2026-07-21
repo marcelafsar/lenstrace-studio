@@ -139,6 +139,32 @@ export function BotCard({ initial }: { initial: BotView }) {
       {view.runtime.last_error && view.runtime.state === 'crashed' && (
         <Banner kind="warn">{view.runtime.last_error}</Banner>
       )}
+      {view.runtime.last_handler_error && (
+        <Banner kind="warn">Last handler error: {view.runtime.last_handler_error}</Banner>
+      )}
+
+      {running && (
+        <div className="readiness">
+          <ReadyDot on={view.runtime.authenticated} label="Authenticated" />
+          {kind === 'telegram' && <ReadyDot on={view.runtime.ready} label="Polling ready" />}
+          {kind === 'discord' && (
+            <>
+              <ReadyDot on={view.runtime.ready} label="Gateway ready" />
+              <ReadyDot
+                on={view.runtime.commands_synced}
+                label={
+                  view.runtime.commands_synced && view.runtime.commands_count != null
+                    ? `Commands synced (${view.runtime.commands_count})`
+                    : 'Commands synced'
+                }
+              />
+            </>
+          )}
+          {view.runtime.last_processed && (
+            <span className="hint">Last: {view.runtime.last_processed}</span>
+          )}
+        </div>
+      )}
 
       {!view.token_configured && (
         <div className="setup-block">
@@ -204,6 +230,24 @@ export function BotCard({ initial }: { initial: BotView }) {
             <button className="btn ghost" onClick={() => run(() => botsApi.restart(kind))} disabled={busy || !running}>
               Restart
             </button>
+            {kind === 'discord' && (
+              <button
+                className="btn ghost"
+                onClick={() => run(() => botsApi.resync(kind))}
+                disabled={busy || !running}
+                title="Restart the bot to re-sync slash commands"
+              >
+                Resync commands
+              </button>
+            )}
+            {kind === 'telegram' && identity?.username && (
+              <button
+                className="btn ghost"
+                onClick={() => openUrl(`https://t.me/${identity.username}`)}
+              >
+                Open bot chat
+              </button>
+            )}
             <button className="btn ghost" onClick={() => setShowLogs((v) => !v)}>
               {showLogs ? 'Hide logs' : 'View logs'}
             </button>
@@ -241,4 +285,15 @@ export function BotCard({ initial }: { initial: BotView }) {
 
 function openUrl(url: string) {
   window.lenstrace?.openExternal(url);
+}
+
+function ReadyDot({ on, label }: { on?: boolean; label: string }) {
+  return (
+    <span className={`ready-dot ${on ? 'on' : ''}`}>
+      <span className="dot-mark" aria-hidden>
+        {on ? '●' : '○'}
+      </span>
+      {label}
+    </span>
+  );
 }

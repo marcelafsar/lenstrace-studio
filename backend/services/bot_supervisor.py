@@ -103,6 +103,15 @@ class BotSupervisor:
         self.stop(kind)
         return self.start(kind)
 
+    def resync_commands(self, kind: BotKind) -> BotRuntimeStatus:
+        """Trigger a slash-command resync (Discord) by restarting the process.
+
+        The bot syncs commands once per process in its startup hook (not on every
+        gateway reconnect), so a controlled restart is the safe way to force a
+        fresh sync.
+        """
+        return self.restart(kind)
+
     def status(self, kind: BotKind) -> BotRuntimeStatus:
         with self._lock:
             return self._status_locked(kind)
@@ -143,9 +152,13 @@ class BotSupervisor:
         token_configured = bot_config_service.resolve_token(kind)[0] is not None
 
         state: BotRuntimeState
-        if proc is not None and proc.state in (
+        if proc is not None and proc.state == BotRuntimeState.RUNNING:
+            # The process exists, but do NOT report a green "Running" until the
+            # bot reports it is actually ready (polling/gateway ready). Until
+            # then it is still starting/connecting.
+            state = BotRuntimeState.RUNNING if proc.ready else BotRuntimeState.STARTING
+        elif proc is not None and proc.state in (
             BotRuntimeState.STARTING,
-            BotRuntimeState.RUNNING,
             BotRuntimeState.STOPPING,
             BotRuntimeState.CRASHED,
         ):
@@ -166,6 +179,13 @@ class BotSupervisor:
             restart_count=self._auto_restart_counts.get(kind, 0),
             pid=proc.pid if proc else None,
             recent_logs=proc.recent_logs(20) if proc else [],
+            phase=proc.phase if proc else None,
+            authenticated=proc.authenticated if proc else False,
+            ready=proc.ready if proc else False,
+            commands_synced=proc.commands_synced if proc else False,
+            commands_count=proc.commands_count if proc else None,
+            last_processed=proc.last_processed if proc else None,
+            last_handler_error=proc.last_handler_error if proc else None,
         )
 
     def _on_process_exit(self, proc: BotProcess) -> None:

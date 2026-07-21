@@ -39,6 +39,14 @@ export interface BotRuntimeStatus {
   restart_count: number;
   pid?: number | null;
   recent_logs: string[];
+  // Real-readiness signals reported by the bot process.
+  phase?: string | null;
+  authenticated?: boolean;
+  ready?: boolean;
+  commands_synced?: boolean;
+  commands_count?: number | null;
+  last_processed?: string | null;
+  last_handler_error?: string | null;
 }
 
 export interface BotView {

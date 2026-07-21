@@ -40,3 +40,18 @@ class BotRuntimeStatus(BaseModel):
     pid: int | None = None
     #: Bounded recent log lines (already redacted).
     recent_logs: list[str] = Field(default_factory=list)
+
+    # ---- Real-readiness signals reported by the bot process ----
+    #: Last structured phase reported (e.g. "polling_ready", "gateway_ready").
+    phase: str | None = None
+    #: The bot authenticated with the platform API.
+    authenticated: bool = False
+    #: The bot is actually ready to receive updates (polling/gateway ready).
+    ready: bool = False
+    #: Discord: slash commands have been synchronised.
+    commands_synced: bool = False
+    commands_count: int | None = None
+    #: Short label of the last update/command processed (no user content).
+    last_processed: str | None = None
+    #: Last handler-level error surfaced by the bot (redacted, non-sensitive).
+    last_handler_error: str | None = None

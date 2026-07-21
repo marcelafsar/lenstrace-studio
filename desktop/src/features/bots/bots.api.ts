@@ -36,6 +36,7 @@ export const botsApi = {
   start: (kind: BotKind) => request<BotView>(`/bots/${kind}/start`, { method: 'POST' }),
   stop: (kind: BotKind) => request<BotView>(`/bots/${kind}/stop`, { method: 'POST' }),
   restart: (kind: BotKind) => request<BotView>(`/bots/${kind}/restart`, { method: 'POST' }),
+  resync: (kind: BotKind) => request<BotView>(`/bots/${kind}/resync`, { method: 'POST' }),
 
   logs: (kind: BotKind) => request<LogsResponse>(`/bots/${kind}/logs`),
 };
