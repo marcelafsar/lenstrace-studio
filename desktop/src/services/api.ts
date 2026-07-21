@@ -37,7 +37,7 @@ function baseUrl(): string {
   return `http://${connection.host}:${connection.port}`;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!connection) throw new ApiError('Backend connection not established', 0);
   const headers = new Headers(init.headers);
   headers.set('X-LensTrace-Token', connection.token);

@@ -120,4 +120,5 @@ export interface ExportResult {
 export interface ExportResponse {
   result: ExportResult;
   disclaimer: string;
+  export_id?: string | null;
 }

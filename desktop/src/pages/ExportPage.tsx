@@ -3,6 +3,8 @@ import { Banner } from '@/components/Banner';
 import { api, ApiError } from '@/services/api';
 import { buildChangeRequest } from '@/services/buildRequest';
 import { useWorkflowStore } from '@/stores/useWorkflowStore';
+import { useExportsStore } from '@/stores/useExportsStore';
+import { useNavStore } from '@/stores/useNavStore';
 
 interface FileOutcome {
   name: string;
@@ -19,8 +21,11 @@ export function ExportPage() {
   const setOptions = useWorkflowStore((s) => s.setOptions);
   const back = useWorkflowStore((s) => s.back);
   const reset = useWorkflowStore((s) => s.reset);
+  const addExport = useExportsStore((s) => s.add);
+  const goToSection = useNavStore((s) => s.setSection);
 
   const [running, setRunning] = useState(false);
+  const [anyDelivered, setAnyDelivered] = useState(false);
   const [done, setDone] = useState(false);
   const [outcomes, setOutcomes] = useState<FileOutcome[]>([]);
   const [lastFolder, setLastFolder] = useState<string | null>(null);
@@ -46,6 +51,15 @@ export function ExportPage() {
           warnings: res.result.warnings,
         });
         setLastFolder(res.result.destination_path.replace(/[\\/][^\\/]*$/, ''));
+        // Record the export so it can be sent to an iPhone from "Send to iPhone".
+        if (res.export_id) {
+          addExport({
+            exportId: res.export_id,
+            name: res.result.destination_path.replace(/^.*[\\/]/, ''),
+            thumbnailDataUri: f.file.thumbnail_data_uri,
+          });
+          setAnyDelivered(true);
+        }
       } catch (e) {
         results.push({
           name: f.file.original_name,
@@ -171,6 +185,11 @@ export function ExportPage() {
         {done && lastFolder && (
           <button className="btn" onClick={() => window.lenstrace?.openPath(lastFolder)}>
             Open output folder
+          </button>
+        )}
+        {done && anyDelivered && (
+          <button className="btn primary" onClick={() => goToSection('send')}>
+            Send to iPhone →
           </button>
         )}
         {done ? (

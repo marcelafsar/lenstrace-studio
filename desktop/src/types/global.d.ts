@@ -7,6 +7,7 @@ declare global {
       openImages: () => Promise<PickedFile[]>;
       chooseOutputDir: () => Promise<string | null>;
       openPath: (target: string) => Promise<string>;
+      openExternal: (url: string) => Promise<boolean>;
     };
   }
 }

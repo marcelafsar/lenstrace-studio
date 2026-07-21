@@ -159,6 +159,23 @@ ipcMain.handle('shell:openPath', async (_e, target: string) => {
   return shell.openPath(target);
 });
 
+// Open an external URL — defence-in-depth: only http(s) is ever passed to the
+// OS handler (the backend also validates URLs before returning them).
+ipcMain.handle('shell:openExternal', async (_e, url: string) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      logError('Refused to open non-http(s) URL.');
+      return false;
+    }
+    await shell.openExternal(parsed.toString());
+    return true;
+  } catch {
+    logError('Refused to open malformed URL.');
+    return false;
+  }
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {

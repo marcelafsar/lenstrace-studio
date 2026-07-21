@@ -28,6 +28,7 @@ const api = {
   openImages: (): Promise<PickedFile[]> => ipcRenderer.invoke('dialog:openImages'),
   chooseOutputDir: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseOutputDir'),
   openPath: (target: string): Promise<string> => ipcRenderer.invoke('shell:openPath', target),
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url),
 };
 
 contextBridge.exposeInMainWorld('lenstrace', api);
