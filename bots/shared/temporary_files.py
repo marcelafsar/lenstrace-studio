@@ -9,16 +9,26 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from types import TracebackType
 
 from core.validation import sanitize_filename
 
+_WORKSPACE_PREFIX = "lenstrace-bot-"
+#: Stale workspaces older than this are removed on startup (seconds).
+_DEFAULT_RETENTION_S = 6 * 60 * 60
+
 
 class TemporaryWorkspace:
-    """An isolated temp directory that deletes itself on exit."""
+    """An isolated temp directory that deletes itself on exit.
 
-    def __init__(self, prefix: str = "lenstrace-bot-") -> None:
+    The directory name is created by ``tempfile.mkdtemp`` (cryptographically
+    unpredictable) under the system temp root, so sessions never collide and
+    names are not guessable.
+    """
+
+    def __init__(self, prefix: str = _WORKSPACE_PREFIX) -> None:
         self._dir = Path(tempfile.mkdtemp(prefix=prefix))
         self.input_dir = self._dir / "in"
         self.output_dir = self._dir / "out"
@@ -46,3 +56,30 @@ class TemporaryWorkspace:
         tb: TracebackType | None,
     ) -> None:
         self.cleanup()
+
+
+def cleanup_stale_workspaces(retention_seconds: int = _DEFAULT_RETENTION_S) -> int:
+    """Remove LensTrace bot temp workspaces older than the retention period.
+
+    Only ever touches directories under the system temp root whose names start
+    with the LensTrace prefix — never arbitrary system temp files. Returns the
+    number of directories removed. Safe to call on bot startup.
+    """
+    removed = 0
+    temp_root = Path(tempfile.gettempdir())
+    now = time.time()
+    try:
+        candidates = list(temp_root.glob(f"{_WORKSPACE_PREFIX}*"))
+    except OSError:
+        return 0
+    for path in candidates:
+        if not path.is_dir():
+            continue
+        try:
+            age = now - path.stat().st_mtime
+        except OSError:
+            continue
+        if age > retention_seconds:
+            shutil.rmtree(path, ignore_errors=True)
+            removed += 1
+    return removed

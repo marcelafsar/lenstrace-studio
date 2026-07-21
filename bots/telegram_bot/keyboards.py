@@ -48,6 +48,7 @@ def lens_keyboard(preset_id: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(lens.display_name, callback_data=f"lens:{lens.id}")]
         for lens in device.lenses
     ]
+    rows.append([InlineKeyboardButton("Keep original lens", callback_data="lens:keep")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -61,12 +62,45 @@ def datetime_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+#: A small, curated set of common IANA zones for quick selection.
+_COMMON_TIMEZONES = [
+    ("UTC", "UTC"),
+    ("London", "Europe/London"),
+    ("Paris", "Europe/Paris"),
+    ("Istanbul", "Europe/Istanbul"),
+    ("New York", "America/New_York"),
+    ("Los Angeles", "America/Los_Angeles"),
+    ("Tokyo", "Asia/Tokyo"),
+    ("Sydney", "Australia/Sydney"),
+]
+
+
+def timezone_keyboard() -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(label, callback_data=f"tz:{zone}")]
+        for label, zone in _COMMON_TIMEZONES
+    ]
+    rows.append([InlineKeyboardButton("No time zone (skip)", callback_data="tz:skip")])
+    return InlineKeyboardMarkup(rows)
+
+
 def location_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Skip", callback_data="loc:skip")],
+            [InlineKeyboardButton("Skip (keep original)", callback_data="loc:skip")],
             [InlineKeyboardButton("Enter coordinates", callback_data="loc:coords")],
             [InlineKeyboardButton("Remove existing GPS", callback_data="loc:remove")],
+        ]
+    )
+
+
+def photo_warning_keyboard() -> InlineKeyboardMarkup:
+    """Shown when a compressed photo arrives via Telegram's photo route."""
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Continue with this photo", callback_data="photo:continue")],
+            [InlineKeyboardButton("I'll send it as a file", callback_data="photo:asfile")],
+            [InlineKeyboardButton("✖ Cancel", callback_data="action:cancel")],
         ]
     )
 

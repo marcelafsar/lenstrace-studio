@@ -2,7 +2,9 @@
 
 The Telegram bot uses callback-driven state stored on the shared BotSession
 rather than python-telegram-bot's ConversationHandler states, so the same
-session model can be reused by the Discord bot.
+session model can be reused by the Discord bot. State ownership is therefore
+explicit and single-sourced: ``BotSession.state`` (a value from
+:class:`EditState`) is the one place the current step lives.
 """
 
 from __future__ import annotations
@@ -11,16 +13,19 @@ from enum import Enum
 
 
 class EditState(str, Enum):
-    IDLE = "idle"
+    # No pending upload; waiting for the user to send an image document.
+    WAITING_FOR_UPLOAD = "waiting_for_upload"
+    # A document was received and inspected; showing the action buttons.
     AWAIT_ACTION = "await_action"
-    CHOOSE_GENERATION = "choose_generation"
-    CHOOSE_DEVICE = "choose_device"
-    CHOOSE_LENS = "choose_lens"
-    CHOOSE_DATETIME = "choose_datetime"
-    AWAIT_MANUAL_DATETIME = "await_manual_datetime"
-    CHOOSE_LOCATION = "choose_location"
-    AWAIT_COORDS = "await_coords"
-    REVIEW = "review"
+    CHOOSING_DEVICE = "choosing_device"
+    CHOOSING_LENS = "choosing_lens"
+    CHOOSING_DATE_MODE = "choosing_date_mode"
+    ENTERING_DATETIME = "entering_datetime"
+    CHOOSING_TIMEZONE = "choosing_timezone"
+    CHOOSING_LOCATION = "choosing_location"
+    ENTERING_COORDINATES = "entering_coordinates"
+    REVIEWING = "reviewing"
+    PROCESSING = "processing"
 
 
 #: Documented manual datetime format shown to users.
