@@ -15,8 +15,14 @@ from typing import Any
 _REDACT_PATTERNS = [
     (re.compile(r"(session[_-]?token[\"'=:\s]+)[\w\-\.]+", re.I), r"\1<redacted>"),
     (re.compile(r"(bot[_-]?token[\"'=:\s]+)[\w\-\.:]+", re.I), r"\1<redacted>"),
-    # Telegram/Discord token shapes.
-    (re.compile(r"\b\d{6,}:[A-Za-z0-9_\-]{30,}\b"), "<redacted-telegram-token>"),
+    # Telegram API URL form: .../bot<digits>:<token>/method — the token is
+    # preceded by "bot" (a word char), so a \b-anchored pattern would MISS it.
+    (
+        re.compile(r"bot(\d{5,}):[A-Za-z0-9_\-]{20,}", re.I),
+        r"bot\1:<redacted-telegram-token>",
+    ),
+    # Bare Telegram bot-token shape (no leading word boundary requirement).
+    (re.compile(r"(?<![\w])\d{6,}:[A-Za-z0-9_\-]{30,}"), "<redacted-telegram-token>"),
     (
         re.compile(r"\b[MN][A-Za-z0-9_\-]{23}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27,}\b"),
         "<redacted-discord-token>",
@@ -78,6 +84,12 @@ def configure_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(_KeyValueFormatter())
     handler.addFilter(RedactionFilter())
+    # Also attach the redaction filter to the handler-less flow and to noisy
+    # HTTP client loggers that would otherwise log full request URLs. The
+    # Telegram Bot API embeds the token in the request path, so httpx's INFO
+    # "HTTP Request: POST .../bot<token>/..." line must never be emitted.
+    for noisy in ("httpx", "httpcore", "telegram.vendor", "hpack"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     root.addHandler(handler)
 
 

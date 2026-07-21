@@ -81,6 +81,35 @@ def test_parse_ignores_normal_lines():
     assert se.parse_event("just a normal log line") is None
 
 
+# ---- token redaction (regression: token embedded in a Telegram API URL) ----
+
+
+def test_redaction_scrubs_url_embedded_telegram_token():
+    from backend.logging_config import redact
+
+    # Synthetic token with a real token's shape, embedded in the API URL form
+    # httpx logs. The leading "bot" defeats a \b-anchored pattern, so this is a
+    # regression guard for that exact case.
+    line = "HTTP Request: POST https://api.telegram.org/bot1234567890:AAFakeSecret_abcdefghijklmnop12/getMe"
+    out = redact(line)
+    assert "AAFakeSecret" not in out
+    assert "redacted-telegram-token" in out
+
+
+def test_redaction_scrubs_bare_telegram_token():
+    from backend.logging_config import redact
+
+    out = redact("using 9876543210:ZZZZfakesecret_abcdefghijklmnop here")
+    assert "ZZZZfakesecret" not in out
+
+
+def test_redaction_keeps_status_events_readable():
+    from backend.logging_config import redact
+
+    line = "BOT_STATUS telegram polling_ready username=lenstracebot"
+    assert redact(line) == line
+
+
 # ---- temp workspace cleanup ------------------------------------------------
 
 
