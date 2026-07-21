@@ -15,7 +15,14 @@ import secrets
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api import routes_files, routes_metadata, routes_presets
+from backend.api import (
+    routes_bots,
+    routes_config,
+    routes_delivery,
+    routes_files,
+    routes_metadata,
+    routes_presets,
+)
 from backend.config import get_settings
 from backend.logging_config import configure_logging, get_logger
 from core.exceptions import LensTraceError
@@ -63,6 +70,9 @@ def create_app() -> FastAPI:
     app.include_router(routes_files.router, dependencies=protected)
     app.include_router(routes_metadata.router, dependencies=protected)
     app.include_router(routes_presets.router, dependencies=protected)
+    app.include_router(routes_delivery.router, dependencies=protected)
+    app.include_router(routes_bots.router, dependencies=protected)
+    app.include_router(routes_config.router, dependencies=protected)
 
     @app.exception_handler(LensTraceError)
     async def _domain_error_handler(_request, exc: LensTraceError):  # noqa: ANN001
@@ -70,6 +80,25 @@ def create_app() -> FastAPI:
 
         logger.warning("Domain error: %s", exc)
         return JSONResponse(status_code=400, content={"error": exc.user_message})
+
+    @app.on_event("startup")
+    def _on_startup() -> None:
+        # Only starts bots the user explicitly marked auto-start AND configured.
+        from backend.services.bot_supervisor import get_supervisor
+
+        try:
+            get_supervisor().start_auto_start_bots()
+        except Exception:  # noqa: BLE001 - never block startup on bot issues
+            logger.warning("Auto-start of bots skipped due to an error.")
+
+    @app.on_event("shutdown")
+    def _on_shutdown() -> None:
+        # Stop child bot processes so none are orphaned when LensTrace exits.
+        from backend.services import settings_service
+        from backend.services.bot_supervisor import get_supervisor
+
+        if settings_service.get_config().lifecycle.stop_bots_on_exit:
+            get_supervisor().shutdown_all()
 
     logger.info("Backend initialised (host=%s port=%s)", settings.host, settings.port)
     return app

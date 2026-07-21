@@ -66,3 +66,23 @@ def output_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def engine() -> MetadataEngine:
     return MetadataEngine()
+
+
+@pytest.fixture
+def isolated_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point secret/state storage at a temp dir so tests never touch ~/.lenstrace.
+
+    Also clears the settings cache so env changes take effect.
+    """
+    state = tmp_path / "state"
+    state.mkdir()
+    monkeypatch.setenv("LENSTRACE_SECRETS_DIR", str(state / "secrets"))
+    monkeypatch.setenv("LENSTRACE_STATE_DIR", str(state / "settings"))
+    # Ensure no ambient bot tokens leak in from the real environment.
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("DISCORD_BOT_TOKEN", raising=False)
+    from backend.services import settings_service
+
+    settings_service.reload_config()
+    yield state
+    settings_service.reload_config()
