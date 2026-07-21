@@ -57,6 +57,18 @@ class LifecycleConfig(BaseModel):
     max_restarts: int = Field(default=3, ge=0, le=20)
 
 
+class GeocodingConfig(BaseModel):
+    """Address-search (geocoding) configuration. Address search is optional;
+    manual coordinates work even when this is disabled."""
+
+    enabled: bool = True
+    provider: str = "nominatim"
+    user_agent: str = "LensTraceStudio/0.1"
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    max_results: int = Field(default=5, ge=1, le=10)
+    cache_minutes: int = Field(default=10, ge=0, le=1440)
+
+
 class LensTraceConfig(BaseModel):
     """Aggregate non-secret application configuration."""
 
@@ -66,6 +78,7 @@ class LensTraceConfig(BaseModel):
     geocoding_user_agent: str = "LensTraceStudio/0.1"
     debug: bool = False
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)
+    geocoding: GeocodingConfig = Field(default_factory=GeocodingConfig)
     telegram: BotSettings = Field(default_factory=lambda: BotSettings(kind=BotKind.TELEGRAM))
     discord: BotSettings = Field(default_factory=lambda: BotSettings(kind=BotKind.DISCORD))
     lifecycle: LifecycleConfig = Field(default_factory=LifecycleConfig)

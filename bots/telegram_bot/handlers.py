@@ -12,13 +12,15 @@ Logging never records image bytes or coordinates at INFO level.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from datetime import datetime
+from datetime import date, datetime, time
 
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
+from backend.services.geocoding_service import GeocodingError, get_geocoding_service
 from bots.shared.bot_sessions import BotSession, SessionManager
 from bots.shared.formatting import CAPTURE_DISCLAIMER, format_diff, format_summary
 from bots.shared.image_validation import accept_document, validate_image_content
@@ -32,6 +34,7 @@ from bots.telegram_bot.conversation import (
 )
 from core.datetime_utils import offset_for_timezone, parse_user_datetime
 from core.exceptions import LensTraceError
+from core.location.validation import parse_coordinates
 from core.metadata_engine import MetadataEngine
 from core.metadata_models import DateStrategy, GPSData
 
@@ -267,6 +270,14 @@ async def _route_callback(query, ctx, session: BotSession, data: str) -> None:
         await query.edit_message_text(
             f"Send the date/time as `{MANUAL_DATETIME_FORMAT}`.", parse_mode="Markdown"
         )
+    elif data == "dt:calendar":
+        await _show_calendar(query, session)
+    elif data.startswith("cal:"):
+        await _on_calendar(query, session, data)
+    elif data.startswith("th:"):
+        await _on_hour(query, session, data.split(":", 1)[1])
+    elif data.startswith("tm:"):
+        await _on_minute(query, session, data.split(":", 1)[1])
     elif data.startswith("tz:"):
         zone = data.split(":", 1)[1]
         if zone != "skip":
@@ -278,12 +289,26 @@ async def _route_callback(query, ctx, session: BotSession, data: str) -> None:
     elif data == "loc:remove":
         session.config["loc_mode"] = "remove"
         await _show_review(query, session)
+    elif data == "loc:tg":
+        await query.edit_message_text(
+            "Share your location using Telegram's 📎 attach → Location, and I'll "
+            "preview it for confirmation."
+        )
+    elif data == "loc:search":
+        session.state = EditState.ENTERING_ADDRESS.value
+        await query.edit_message_text(
+            "Enter an address, landmark, city, or place name to search for."
+        )
     elif data == "loc:coords":
         session.state = EditState.ENTERING_COORDINATES.value
         await query.edit_message_text(
             f"Send coordinates as `{MANUAL_COORDS_FORMAT}`, or share a Telegram location.",
             parse_mode="Markdown",
         )
+    elif data.startswith("locpick:"):
+        await _on_location_pick(query, ctx, session, data.split(":", 1)[1])
+    elif data.startswith("locuse:"):
+        await _on_location_use(query, session, data.split(":", 1)[1])
     elif data == "confirm:yes":
         await _do_export(query, session)
     else:
@@ -333,17 +358,24 @@ async def on_text(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(exc.user_message)
             return
         await _ask_timezone_msg(update, session)
+    elif session.state == EditState.ENTERING_CUSTOM_TIME.value:
+        parsed = _parse_time(text)
+        if parsed is None:
+            await update.message.reply_text("Enter time as HH:MM or HH:MM:SS (24-hour).")
+            return
+        _apply_time(session, *parsed)
+        await _ask_timezone_msg(update, session)
     elif session.state == EditState.ENTERING_COORDINATES.value:
         try:
-            lat_str, lon_str = text.split(",")
-            session.config["gps"] = GPSData(latitude=float(lat_str), longitude=float(lon_str))
+            lat, lon = parse_coordinates(text)
+            session.config["gps"] = GPSData(latitude=lat, longitude=lon)
             session.config["loc_mode"] = "set"
-        except (ValueError, LensTraceError):
-            await update.message.reply_text(
-                f"Could not parse coordinates. Use `{MANUAL_COORDS_FORMAT}`.", parse_mode="Markdown"
-            )
+        except LensTraceError as exc:
+            await update.message.reply_text(exc.user_message)
             return
-        await _show_review_msg(update, session)
+        await _show_coord_preview_msg(update, session, lat, lon)
+    elif session.state == EditState.ENTERING_ADDRESS.value:
+        await _run_address_search(update, session, text)
     elif session.state == EditState.WAITING_FOR_UPLOAD.value:
         await update.message.reply_text("Send an image as a file/document to begin, or /help.")
     else:
@@ -456,6 +488,167 @@ def _build_and_export(session: BotSession):
         remove_gps=cfg.get("loc_mode") == "remove",
     )
     return engine.apply_metadata(plan)
+
+
+# ---- Calendar / time pickers ---------------------------------------------
+
+
+async def _show_calendar(query, session: BotSession) -> None:
+    session.state = EditState.CHOOSING_CALENDAR.value
+    today = date.today()
+    await query.edit_message_text(
+        "Pick a date:", reply_markup=keyboards.calendar_keyboard(today.year, today.month)
+    )
+
+
+async def _on_calendar(query, session: BotSession, data: str) -> None:
+    parts = data.split(":")
+    action = parts[1]
+    if action == "noop":
+        return
+    if action in ("p", "n"):  # navigate month
+        year, month = (int(x) for x in parts[2].split("-"))
+        await query.edit_message_text(
+            "Pick a date:", reply_markup=keyboards.calendar_keyboard(year, month)
+        )
+    elif action == "today":
+        session.config["pick_date"] = date.today()
+        await _ask_hour(query, session)
+    elif action == "d":  # a specific day
+        year, month, day = (int(x) for x in parts[2].split("-"))
+        session.config["pick_date"] = date(year, month, day)
+        await _ask_hour(query, session)
+
+
+async def _ask_hour(query, session: BotSession) -> None:
+    session.state = EditState.CHOOSING_HOUR.value
+    picked: date = session.config["pick_date"]
+    await query.edit_message_text(
+        f"Date: {picked.isoformat()}\nChoose the hour (24-hour):",
+        reply_markup=keyboards.hour_keyboard(),
+    )
+
+
+async def _on_hour(query, session: BotSession, value: str) -> None:
+    if value == "keep":
+        # Keep original time -> use midnight on the chosen date, then timezone.
+        _apply_time(session, 0, 0, 0)
+        await _ask_timezone(query, session)
+        return
+    if value == "custom":
+        session.state = EditState.ENTERING_CUSTOM_TIME.value
+        await query.edit_message_text("Send the time as HH:MM or HH:MM:SS (24-hour).")
+        return
+    session.config["pick_hour"] = int(value)
+    session.state = EditState.CHOOSING_MINUTE.value
+    await query.edit_message_text("Choose the minute:", reply_markup=keyboards.minute_keyboard())
+
+
+async def _on_minute(query, session: BotSession, value: str) -> None:
+    if value == "custom":
+        session.state = EditState.ENTERING_CUSTOM_TIME.value
+        await query.edit_message_text("Send the time as HH:MM or HH:MM:SS (24-hour).")
+        return
+    hour = int(session.config.get("pick_hour", 0))
+    _apply_time(session, hour, int(value), 0)
+    await _ask_timezone(query, session)
+
+
+def _parse_time(text: str) -> tuple[int, int, int] | None:
+    """Parse HH:MM or HH:MM:SS strictly; return (h, m, s) or None."""
+    parts = text.strip().split(":")
+    if len(parts) not in (2, 3) or not all(p.isdigit() for p in parts):
+        return None
+    h, m = int(parts[0]), int(parts[1])
+    s = int(parts[2]) if len(parts) == 3 else 0
+    if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= s <= 59):
+        return None
+    return h, m, s
+
+
+def _apply_time(session: BotSession, hour: int, minute: int, second: int) -> None:
+    """Combine the picked calendar date with a time into the session datetime."""
+    picked: date = session.config.get("pick_date") or date.today()
+    session.config["datetime"] = datetime.combine(picked, time(hour, minute, second))
+    session.config["date_mode"] = "set"
+
+
+# ---- Address search flow -------------------------------------------------
+
+
+async def _run_address_search(update: Update, session: BotSession, query_text: str) -> None:
+    await update.message.reply_text("🔎 Searching for that location…")
+    try:
+        results = get_geocoding_service().search(query_text)
+    except GeocodingError as exc:
+        await update.message.reply_text(
+            f"{exc.user_message} You can enter coordinates instead.",
+            reply_markup=keyboards.location_empty_keyboard(),
+        )
+        return
+    if not results:
+        await update.message.reply_text(
+            "No matching location found.", reply_markup=keyboards.location_empty_keyboard()
+        )
+        return
+    session.config["last_results"] = [r.result_id for r in results]
+    await update.message.reply_text(
+        "Select the correct location:",
+        reply_markup=keyboards.location_result_keyboard(results),
+    )
+
+
+async def _on_location_pick(query, ctx, session: BotSession, result_id: str) -> None:
+    result = get_geocoding_service().get_result(result_id)
+    if result is None:
+        await query.edit_message_text(
+            "That result expired. Search again.", reply_markup=keyboards.location_empty_keyboard()
+        )
+        return
+    # Show details + a map link, and send a Telegram location preview.
+    await query.edit_message_text(
+        f"*{result.display_name}*\n"
+        f"`{result.latitude:.5f}, {result.longitude:.5f}`\n"
+        f"[Open map]({result.map_url})",
+        parse_mode="Markdown",
+        reply_markup=keyboards.location_confirm_keyboard(result_id),
+        disable_web_page_preview=False,
+    )
+    with contextlib.suppress(Exception):  # preview is best-effort
+        await ctx.bot.send_location(
+            chat_id=query.message.chat_id,
+            latitude=result.latitude,
+            longitude=result.longitude,
+        )
+
+
+async def _on_location_use(query, session: BotSession, result_id: str) -> None:
+    result = get_geocoding_service().get_result(result_id)
+    if result is None:
+        await query.edit_message_text(
+            "That result expired. Search again.", reply_markup=keyboards.location_empty_keyboard()
+        )
+        return
+    session.config["gps"] = GPSData(
+        latitude=result.latitude,
+        longitude=result.longitude,
+        address_label=result.display_name,
+    )
+    session.config["loc_mode"] = "set"
+    await _show_review(query, session)
+
+
+async def _show_coord_preview_msg(
+    update: Update, session: BotSession, lat: float, lon: float
+) -> None:
+    """After manual coords: show a map link and go to review."""
+    from core.location.map_links import osm_map_url
+
+    await update.effective_message.reply_text(
+        f"Location set: `{lat:.5f}, {lon:.5f}`\n[Open map]({osm_map_url(lat, lon)})",
+        parse_mode="Markdown",
+    )
+    await _show_review_msg(update, session)
 
 
 # ---- Review helpers (callback vs. text entry points) ---------------------

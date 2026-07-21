@@ -17,6 +17,7 @@ from core.config.models import (
     BotKind,
     BotSettings,
     DeliveryConfig,
+    GeocodingConfig,
     LensTraceConfig,
     LifecycleConfig,
 )
@@ -94,6 +95,16 @@ def load_config(env: dict[str, str] | None = None) -> LensTraceConfig:
         lenstrace_sync_path=e.get("LENSTRACE_SYNC_PATH") or None,
     )
 
+    ua = get("GEOCODING_USER_AGENT", "LensTraceStudio/0.1") or "LensTraceStudio/0.1"
+    geocoding = GeocodingConfig(
+        enabled=parse_bool(e.get("GEOCODING_ENABLED"), default=True),
+        provider=get("GEOCODING_PROVIDER", "nominatim") or "nominatim",
+        user_agent=ua,
+        timeout_seconds=float(parse_optional_int(e.get("GEOCODING_TIMEOUT_SECONDS")) or 10),
+        max_results=parse_optional_int(e.get("GEOCODING_MAX_RESULTS")) or 5,
+        cache_minutes=parse_optional_int(e.get("GEOCODING_CACHE_MINUTES")) or 10,
+    )
+
     # UI-controlled overrides (persisted via set_bot_setting) take precedence
     # over .env defaults for these specific toggles.
     ov = _read_overrides()
@@ -136,6 +147,7 @@ def load_config(env: dict[str, str] | None = None) -> LensTraceConfig:
         or "LensTraceStudio/0.1",
         debug=parse_bool(e.get("LENSTRACE_DEBUG"), default=False),
         delivery=delivery,
+        geocoding=geocoding,
         telegram=telegram,
         discord=discord,
         lifecycle=lifecycle,

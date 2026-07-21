@@ -311,3 +311,173 @@ def test_error_handler_notifies_user():
         handlers.Update = original
     msg.reply_text.assert_awaited()
     assert TgUpdate  # imported for clarity
+
+
+# ---- Calendar / time pickers ----------------------------------------------
+
+
+def _callback(data, user_id=42, ctx=None):
+    query = make_query(data, user_id)
+    upd = SimpleNamespace(callback_query=query, effective_user=SimpleNamespace(id=user_id))
+    _run(handlers.on_callback(upd, ctx or make_ctx()))
+    return query
+
+
+def _enter_edit_datetime():
+    """Seed an image and advance to the date-mode step."""
+    _seed_session_with_image()
+    _callback("action:edit")
+    _callback("preset:iphone-15")
+    _callback("lens:keep")
+
+
+def test_calendar_opens_and_selects_date():
+    _enter_edit_datetime()
+    _callback("dt:calendar")
+    assert handlers.sessions.get(42).state == EditState.CHOOSING_CALENDAR.value
+    # Navigate a month then pick a day.
+    _callback("cal:n:2026-08")
+    _callback("cal:d:2026-08-15")
+    session = handlers.sessions.get(42)
+    assert session.config["pick_date"].isoformat() == "2026-08-15"
+    assert session.state == EditState.CHOOSING_HOUR.value
+
+
+def test_time_picker_builds_datetime():
+    _enter_edit_datetime()
+    _callback("dt:calendar")
+    _callback("cal:d:2026-08-15")
+    _callback("th:14")
+    assert handlers.sessions.get(42).state == EditState.CHOOSING_MINUTE.value
+    _callback("tm:30")
+    session = handlers.sessions.get(42)
+    assert session.config["date_mode"] == "set"
+    assert session.config["datetime"].hour == 14
+    assert session.config["datetime"].minute == 30
+    assert session.state == EditState.CHOOSING_TIMEZONE.value
+
+
+def test_custom_time_entry():
+    _enter_edit_datetime()
+    _callback("dt:calendar")
+    _callback("cal:d:2026-08-15")
+    _callback("th:custom")
+    assert handlers.sessions.get(42).state == EditState.ENTERING_CUSTOM_TIME.value
+    upd = make_update(message=make_message(text="09:05:07"))
+    _run(handlers.on_text(upd, make_ctx()))
+    session = handlers.sessions.get(42)
+    assert session.config["datetime"].hour == 9
+    assert session.config["datetime"].second == 7
+
+
+def test_invalid_custom_time_rejected():
+    _enter_edit_datetime()
+    _callback("dt:calendar")
+    _callback("cal:d:2026-08-15")
+    _callback("th:custom")
+    upd = make_update(message=make_message(text="25:99"))
+    _run(handlers.on_text(upd, make_ctx()))
+    # Still awaiting a valid time; datetime not set.
+    assert handlers.sessions.get(42).state == EditState.ENTERING_CUSTOM_TIME.value
+
+
+# ---- Address search --------------------------------------------------------
+
+
+class _FakeGeo:
+    def __init__(self, results):
+        self._results = {r.result_id: r for r in results}
+        self._list = results
+        self.searched = None
+
+    def search(self, query, **kwargs):
+        self.searched = query
+        return self._list
+
+    def get_result(self, result_id):
+        return self._results.get(result_id)
+
+
+def _make_geo_results():
+    from core.location.map_links import osm_map_url
+    from core.location.models import LocationSearchResult
+
+    return [
+        LocationSearchResult(
+            result_id="rid1",
+            display_name="Sultanahmet, Istanbul",
+            latitude=41.0054,
+            longitude=28.9768,
+            provider="nominatim",
+            map_url=osm_map_url(41.0054, 28.9768),
+        ),
+        LocationSearchResult(
+            result_id="rid2",
+            display_name="Sultanahmet Mosque",
+            latitude=41.0055,
+            longitude=28.9769,
+            provider="nominatim",
+            map_url=osm_map_url(41.0055, 28.9769),
+        ),
+    ]
+
+
+def _reach_location(monkeypatch, geo):
+    monkeypatch.setattr(handlers, "get_geocoding_service", lambda: geo)
+    _seed_session_with_image()
+    _callback("action:edit")
+    _callback("preset:iphone-15")
+    _callback("lens:keep")
+    _callback("dt:keep")  # -> location step
+
+
+def test_address_search_flow(monkeypatch):
+    geo = _FakeGeo(_make_geo_results())
+    _reach_location(monkeypatch, geo)
+    _callback("loc:search")
+    assert handlers.sessions.get(42).state == EditState.ENTERING_ADDRESS.value
+    # Send a query -> acknowledgement + results.
+    upd = make_update(message=make_message(text="sultanahmet"))
+    _run(handlers.on_text(upd, make_ctx()))
+    assert geo.searched == "sultanahmet"
+    # Pick a result -> preview + confirm.
+    pick = _callback("locpick:rid1")
+    pick.edit_message_text.assert_awaited()
+    # Use it -> GPS stored, review.
+    _callback("locuse:rid1")
+    session = handlers.sessions.get(42)
+    assert session.config["loc_mode"] == "set"
+    assert abs(session.config["gps"].latitude - 41.0054) < 1e-6
+    assert session.config["gps"].address_label == "Sultanahmet, Istanbul"
+
+
+def test_address_search_empty_results(monkeypatch):
+    geo = _FakeGeo([])
+    _reach_location(monkeypatch, geo)
+    _callback("loc:search")
+    upd = make_update(message=make_message(text="nowhere"))
+    _run(handlers.on_text(upd, make_ctx()))
+    # A helpful message with fallback options is sent; no GPS stored.
+    assert handlers.sessions.get(42).config.get("gps") is None
+
+
+def test_search_again_resets(monkeypatch):
+    geo = _FakeGeo(_make_geo_results())
+    _reach_location(monkeypatch, geo)
+    _callback("loc:search")
+    _run(handlers.on_text(make_update(message=make_message(text="a")), make_ctx()))
+    # "Search again" returns to address entry.
+    _callback("loc:search")
+    assert handlers.sessions.get(42).state == EditState.ENTERING_ADDRESS.value
+
+
+def test_manual_coordinates_still_work(monkeypatch):
+    geo = _FakeGeo(_make_geo_results())
+    _reach_location(monkeypatch, geo)
+    _callback("loc:coords")
+    assert handlers.sessions.get(42).state == EditState.ENTERING_COORDINATES.value
+    upd = make_update(message=make_message(text="41.0082, 28.9784"))
+    _run(handlers.on_text(upd, make_ctx()))
+    session = handlers.sessions.get(42)
+    assert session.config["loc_mode"] == "set"
+    assert abs(session.config["gps"].longitude - 28.9784) < 1e-6
