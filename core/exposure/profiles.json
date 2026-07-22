@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "_comment": "LensTrace simulation defaults. These are SIMULATED exposure values, not measurements or claimed Apple Camera algorithms. FNumber, 35mm focal length, and LensModel come from the selected lens preset, not from these profiles. flash: 0 = did not fire, 1 = fired. exposure_program 2 = Normal; metering_mode 5 = Pattern; white_balance 0 = Auto; exposure_mode_exif 0 = Auto exposure; scene_capture_type 0 = Standard; light_source 4 = Flash.",
+  "profiles": [
+    {
+      "id": "default",
+      "display_name": "Default",
+      "iso": 125,
+      "exposure_time": "1/121",
+      "exposure_bias": 0.0,
+      "flash": 0,
+      "exposure_program": 2,
+      "metering_mode": 5,
+      "white_balance": 0,
+      "exposure_mode_exif": 0,
+      "scene_capture_type": 0,
+      "light_source": null
+    },
+    {
+      "id": "bright",
+      "display_name": "Bright scene",
+      "iso": 50,
+      "exposure_time": "1/500",
+      "exposure_bias": 0.0,
+      "flash": 0,
+      "exposure_program": 2,
+      "metering_mode": 5,
+      "white_balance": 0,
+      "exposure_mode_exif": 0,
+      "scene_capture_type": 0,
+      "light_source": null
+    },
+    {
+      "id": "dark",
+      "display_name": "Dark scene",
+      "iso": 800,
+      "exposure_time": "1/20",
+      "exposure_bias": 0.0,
+      "flash": 0,
+      "exposure_program": 2,
+      "metering_mode": 5,
+      "white_balance": 0,
+      "exposure_mode_exif": 0,
+      "scene_capture_type": 0,
+      "light_source": null
+    },
+    {
+      "id": "flash",
+      "display_name": "Flash on",
+      "iso": 100,
+      "exposure_time": "1/60",
+      "exposure_bias": 0.0,
+      "flash": 1,
+      "exposure_program": 2,
+      "metering_mode": 5,
+      "white_balance": 0,
+      "exposure_mode_exif": 0,
+      "scene_capture_type": 0,
+      "light_source": 4
+    }
+  ]
+}

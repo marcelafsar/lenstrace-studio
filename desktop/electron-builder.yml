@@ -1,0 +1,25 @@
+# electron-builder configuration (Phase 5 — packaging is scaffolded, NOT yet
+# tested end-to-end). See docs/packaging-windows.md.
+appId: studio.lenstrace.desktop
+productName: LensTrace Studio
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+# The packaged Python backend executable (built with PyInstaller) is expected
+# under resources/backend/. Uncomment once the backend build is wired up.
+# extraResources:
+#   - from: ../backend_dist/
+#     to: backend/
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
