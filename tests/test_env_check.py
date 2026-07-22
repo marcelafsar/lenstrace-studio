@@ -80,3 +80,22 @@ def test_connectivity_uses_injected_bot_validation(isolated_state, monkeypatch):
     report = run_checks(service="telegram", connectivity=True)
     assert any("identity" in r.name.lower() for r in report.results)
     _ = BotKind  # imported for clarity of the tested surface
+
+
+def test_geocoding_check_present(isolated_state):
+    from backend.services.env_check_service import run_checks
+
+    report = run_checks(service="geocoding")
+    names = {r.name for r in report.results}
+    assert "Address search" in names
+
+
+def test_geocoding_disabled_is_warning(isolated_state, monkeypatch):
+    monkeypatch.setenv("GEOCODING_ENABLED", "false")
+    from backend.services import settings_service
+    from backend.services.env_check_service import CheckStatus, run_checks
+
+    settings_service.reload_config()
+    report = run_checks(service="geocoding")
+    statuses = {r.name: r.status for r in report.results}
+    assert statuses.get("Address search") == CheckStatus.WARN

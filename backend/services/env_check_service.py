@@ -261,6 +261,22 @@ def _check_delivery(report: CheckReport) -> None:
     report.add(_sync_folder_check(cat))
 
 
+def _check_geocoding(report: CheckReport) -> None:
+    cat = "geocoding"
+    geo = settings_service.get_config().geocoding
+    if not geo.enabled:
+        report.add(_warn("Address search", cat, "Disabled; manual coordinates still work."))
+        return
+    report.add(_ok("Address search", cat, f"enabled ({geo.provider})"))
+    report.add(
+        _ok("Geocoding user agent", cat)
+        if geo.user_agent.strip()
+        else _warn(
+            "Geocoding user agent", cat, "GEOCODING_USER_AGENT is empty (required by policy)."
+        )
+    )
+
+
 # ---- Small helpers -------------------------------------------------------
 
 
@@ -345,6 +361,8 @@ def run_checks(
         _check_bot(report, BotKind.DISCORD, strict, connectivity)
     if service in ("all", "delivery"):
         _check_delivery(report)
+    if service in ("all", "geocoding"):
+        _check_geocoding(report)
 
     # Ensure secrets never leak into the report.
     _assert_no_secrets(report)

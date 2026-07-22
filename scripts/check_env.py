@@ -49,7 +49,9 @@ def _print_human(report, use_color: bool) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="LensTrace environment checker")
     parser.add_argument(
-        "--service", default="all", choices=["all", "telegram", "discord", "delivery"]
+        "--service",
+        default="all",
+        choices=["all", "telegram", "discord", "delivery", "geocoding"],
     )
     parser.add_argument("--json", action="store_true", help="Machine-readable JSON output.")
     parser.add_argument(

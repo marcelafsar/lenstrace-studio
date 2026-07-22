@@ -42,3 +42,40 @@ ready). Child stdout is unbuffered so events appear promptly.
 - Confirmed vs. assumed behaviour for each step.
 - Whether the acknowledgement appears before inspection.
 - That errors are visible both to the user and in the redacted logs.
+
+## Lens, address search, and date pickers (this session)
+
+### Lens metadata (the reported bug)
+
+1. Send a JPEG as a document → **Edit** → device **Apple iPhone 13 Pro Max**.
+2. Choose **Main Camera** → keep date → skip location → **Review**.
+3. The review must show `Lens model: Apple iPhone 13 Pro Max Main Camera` (marked
+   *(generic)* since no verified optical values exist).
+4. Confirm & export; open the returned document in a metadata viewer and confirm
+   **LensModel is present** (not blank). Repeat for **Ultra Wide** and
+   **Telephoto**.
+5. Send a **PNG** as a document and edit it — the returned file is a **JPEG**
+   (for Apple Photos EXIF visibility) with the LensModel present.
+
+### Address search
+
+1. In the edit flow reach **Location → 🔍 Search by address**.
+2. Enter e.g. `Sultanahmet, Istanbul` → expect "Searching…" then a list of
+   results as buttons.
+3. Tap a result → expect its full address, coordinates, a map link, and a shared
+   Telegram location preview, with **Use this location / Search again / Enter
+   coordinates / Remove / Cancel**.
+4. **Search again** with a different query → new results.
+5. **Use this location** → returns to review with GPS set. Confirm export writes
+   GPS.
+6. **Enter coordinates** manually (e.g. `41.0082, 28.9784`) still works, with a
+   map link preview.
+
+### Date/time picker
+
+1. **Date & time → 📅 Choose from calendar** → navigate months → pick a day.
+2. Choose hour → minute (or **Custom**) → time zone.
+3. Review shows the date/time and UTC offset; confirm it is written to EXIF
+   (`DateTimeOriginal` + `OffsetTimeOriginal`).
+4. **Enter manually** (`YYYY-MM-DD HH:MM:SS`) still works and rejects impossible
+   values (e.g. `2026-02-30`, `25:00`).

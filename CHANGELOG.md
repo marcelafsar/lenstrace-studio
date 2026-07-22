@@ -6,6 +6,31 @@ semantic versioning once it reaches 1.0.
 
 ## [Unreleased]
 
+### Fixed & added — bot lens metadata, address search, date/time pickers
+
+- **Lens metadata fix**: a selected iPhone lens now always writes a non-empty
+  EXIF `LensModel` (previously blank because presets carried empty values and the
+  plan only copied non-empty ones). A centralized resolver
+  (`core/presets/lens_resolver.py`) uses a verified preset value when present,
+  else a transparent generic fallback marked `generic`; optical fields
+  (FocalLength/FNumber/FocalLengthIn35mmFilm/LensSpecification) are written only
+  when a preset supplies them and are never invented. Switching lenses clears
+  stale optical fields; keep/remove-lens honoured.
+- **Export verification**: `apply_metadata` reads the exported file back and
+  verifies it against the plan; a missing requested `LensModel` is a hard failure
+  so bots never send a falsely-successful file. Results carry a SHA-256.
+- **Shared geocoding** (`core/location` + `backend/services/geocoding_service.py`)
+  with Nominatim, rate limiting, cache, opaque result ids, and safe HTTPS map
+  links; optional (manual coordinates always work).
+- **Telegram**: address search (results → preview → confirm → search again),
+  a month-grid calendar picker, and hour/minute/timezone pickers, keeping manual
+  coordinates, Telegram location sharing, and manual date/time.
+- **Discord**: address-search modal → results select → confirm, and a
+  component year/month/day + time/timezone picker, keeping manual entry;
+  owner-only ephemeral controls.
+- Env checker + Diagnostics now report geocoding availability; `.env.example`
+  gains the `GEOCODING_*` variables.
+
 ### Added — Send to iPhone, Bot Control Center, environment checker
 
 - **Unified delivery** (`core/delivery/`, `backend/services/*_service.py`):

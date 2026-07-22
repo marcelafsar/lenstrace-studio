@@ -34,6 +34,39 @@ Written by the engine (JPEG/TIFF):
 | `GPSLongitude` / `GPSLongitudeRef` | GPS | Rational DMS + E/W. |
 | `GPSAltitude` / `GPSAltitudeRef` | GPS | Optional; ref 0 above / 1 below sea level. |
 
+## Lens metadata (LensModel and optical fields)
+
+A selected lens has three distinct concepts — do not confuse them:
+
+| Concept | Example | Notes |
+|---------|---------|-------|
+| Friendly lens (UI only) | `Main Camera` | Never written to EXIF. |
+| EXIF `LensModel` | `Apple iPhone 13 Pro Max Main Camera` | Always written when a lens is selected. |
+| `FocalLength` / `FNumber` / `FocalLengthIn35mmFilm` / `LensSpecification` | 6.86 mm, f/1.78, 26 mm | Written **only** when a preset supplies verified values. |
+
+How `LensModel` is resolved (`core/presets/lens_resolver.py`):
+
+- If a preset provides a verified `lens_model`, that exact value is written.
+- Otherwise a **transparent generic fallback** is generated —
+  `"{manufacturer} {exif_model} {lens_display_name}"` (e.g. *Apple iPhone 13 Pro
+  Max Main Camera*) — and marked `source: "generic"`. This is never presented as
+  verified original Apple metadata; the review screen labels it *(generic)*.
+- Optical values are **never invented**. Missing focal length / aperture simply
+  stay unset; a stale focal length from a different lens is cleared when a new
+  lens is applied.
+- "Keep original lens" preserves existing lens fields; "Remove lens" clears them.
+
+After writing, the engine **reads the file back and verifies** the requested
+fields. A requested `LensModel` that is missing from the output is a hard export
+failure — the bots refuse to send such a file and surface an error instead.
+
+### Why JPEG for Apple Photos
+
+PNG/WebP EXIF is not reliably displayed by Apple Photos. On export the engine
+converts these formats to JPEG (recompressing, with a warning) so `LensModel`
+and other EXIF are broadly visible; the original file is never modified. JPEG is
+the recommended output when the goal is metadata visibility in Apple Photos.
+
 ## Preset data honesty
 
 - iPhone `exif_model` strings for the iPhone 11–16 families are treated as
@@ -41,8 +74,9 @@ Written by the engine (JPEG/TIFF):
 - iPhone 16e, iPhone Air, and the iPhone 17 family are `placeholder` until their
   exact EXIF `Model` strings are confirmed on real devices.
 - Lens entries carry friendly display names ("Main Camera", "Ultra Wide
-  Camera", …) but empty `lens_model` — precise Apple lens EXIF values are **not**
-  invented. A lens value is only written when a preset explicitly provides one.
+  Camera", …). Where a preset leaves `lens_model` empty, a generic fallback is
+  generated at resolve time (marked generic) so a selected lens is **never**
+  written blank; precise Apple optical values are not invented.
 
 ## Authenticity
 
