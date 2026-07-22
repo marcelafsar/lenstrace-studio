@@ -41,6 +41,24 @@ class DateTimeModal(discord.ui.Modal, title="Set date & time"):
         )
 
 
+class AddressModal(discord.ui.Modal, title="Search for a location"):
+    """Free-text address/place search input."""
+
+    query = discord.ui.TextInput(
+        label="Address, landmark, city, or place",
+        placeholder="e.g. Sultanahmet, Istanbul",
+        required=True,
+        max_length=200,
+    )
+
+    def __init__(self, on_submit: Callable[[discord.Interaction, str], object]) -> None:
+        super().__init__()
+        self._on_submit = on_submit
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:  # type: ignore[override]
+        await self._on_submit(interaction, self.query.value)
+
+
 class CoordinatesModal(discord.ui.Modal, title="Set GPS coordinates"):
     latitude = discord.ui.TextInput(label="Latitude", placeholder="41.0082", required=True)
     longitude = discord.ui.TextInput(label="Longitude", placeholder="28.9784", required=True)

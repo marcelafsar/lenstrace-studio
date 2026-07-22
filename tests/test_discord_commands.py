@@ -200,3 +200,137 @@ def test_app_command_error_notifies_user():
     err = discord.app_commands.AppCommandError("boom")
     _run(client._on_app_command_error(interaction, err))
     interaction.response.send_message.assert_awaited()
+
+
+# ---- Discord pickers & address search --------------------------------------
+
+
+def test_edit_panel_has_picker_and_address_buttons():
+    from bots.discord_bot.views import EditPanel
+    from bots.shared.bot_sessions import BotSession
+
+    panel = EditPanel(BotSession(user_id=7), on_review=AsyncMock())
+    labels = {getattr(c, "label", None) for c in panel.children}
+    assert "📅 Date picker" in labels
+    assert "🔍 Address" in labels
+    assert "Coordinates" in labels
+    assert "Review" in labels
+
+
+def test_date_picker_splits_days_for_31_day_month():
+    from bots.discord_bot import pickers
+    from bots.shared.bot_sessions import BotSession
+
+    view = pickers.DatePickerView(BotSession(user_id=7), on_date=AsyncMock())
+    view.year, view.month = 2024, 1  # 31 days
+    view._build()
+    day_selects = [c for c in view.children if type(c).__name__ == "_DaySelect"]
+    assert len(day_selects) == 2  # 1-16 and 17-31
+    # Leap February has 29 days (still splits into two).
+    view.year, view.month = 2024, 2
+    view._build()
+    day_selects = [c for c in view.children if type(c).__name__ == "_DaySelect"]
+    assert len(day_selects) == 2
+
+
+def test_time_view_confirm_sets_datetime():
+    import datetime as dt
+
+    from bots.discord_bot import pickers
+    from bots.shared.bot_sessions import BotSession
+
+    session = BotSession(user_id=7)
+    finished = {}
+
+    async def on_finish(interaction):
+        finished["done"] = True
+
+    view = pickers.TimeView(session, dt.date(2026, 8, 15), on_finish)
+    view.hour, view.minute, view.timezone = 14, 30, "Europe/Istanbul"
+    interaction = make_interaction()
+    _run(view.confirm.callback(interaction))
+    assert session.config["datetime"] == dt.datetime(2026, 8, 15, 14, 30, 0)
+    assert session.config["timezone"] == "Europe/Istanbul"
+    assert session.config.get("utc_offset")  # offset computed
+    assert finished.get("done")
+
+
+def _fake_geo(results):
+    class _G:
+        def search(self, q, **k):
+            return results
+
+        def get_result(self, rid):
+            return {r.result_id: r for r in results}.get(rid)
+
+    return _G()
+
+
+def _geo_results():
+    from core.location.map_links import osm_map_url
+    from core.location.models import LocationSearchResult
+
+    return [
+        LocationSearchResult(
+            result_id="rid1",
+            display_name="Sultanahmet, Istanbul",
+            latitude=41.0054,
+            longitude=28.9768,
+            provider="nominatim",
+            map_url=osm_map_url(41.0054, 28.9768),
+        )
+    ]
+
+
+def test_discord_address_search_flow(monkeypatch):
+    from bots.discord_bot.views import EditPanel
+    from bots.shared.bot_sessions import BotSession
+
+    results = _geo_results()
+    monkeypatch.setattr(
+        "backend.services.geocoding_service.get_geocoding_service", lambda: _fake_geo(results)
+    )
+    session = BotSession(user_id=7)
+    panel = EditPanel(session, on_review=AsyncMock())
+
+    # Run search -> results view sent.
+    interaction = make_interaction()
+    _run(panel._run_address_search(interaction, "sultanahmet"))
+    assert interaction.response.send_message.await_args.kwargs.get("view") is not None
+
+    # Pick -> confirm view.
+    pick_i = make_interaction()
+    _run(panel._on_location_pick(pick_i, "rid1"))
+    pick_i.response.edit_message.assert_awaited()
+
+    # Use -> GPS applied.
+    use_i = make_interaction()
+    _run(panel._on_location_use(use_i, results[0]))
+    assert session.config["loc_mode"] == "set"
+    assert abs(session.config["gps"].latitude - 41.0054) < 1e-6
+    assert session.config["gps"].address_label == "Sultanahmet, Istanbul"
+
+
+def test_discord_address_empty_results(monkeypatch):
+    from bots.discord_bot.views import EditPanel
+    from bots.shared.bot_sessions import BotSession
+
+    monkeypatch.setattr(
+        "backend.services.geocoding_service.get_geocoding_service", lambda: _fake_geo([])
+    )
+    panel = EditPanel(BotSession(user_id=7), on_review=AsyncMock())
+    interaction = make_interaction()
+    _run(panel._run_address_search(interaction, "nowhere"))
+    # A helpful ephemeral message is sent; no view.
+    assert interaction.response.send_message.await_args.kwargs.get("view") is None
+
+
+def test_location_results_view_rejects_other_user():
+    from bots.discord_bot import pickers
+    from bots.shared.bot_sessions import BotSession
+
+    view = pickers.LocationResultsView(
+        BotSession(user_id=7), _geo_results(), AsyncMock(), AsyncMock()
+    )
+    other = make_interaction(user_id=99)
+    assert _run(view.interaction_check(other)) is False
